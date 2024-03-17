@@ -28,6 +28,7 @@ public class Benchmark {
 	static int keyRange = N * 10;
 	static int nThreads = NTHREADS;
 	static int nRounds = NROUNDS;
+	static int batchSize = 1;
 	
 	static void set(int x) {
 		Entity e = new Entity(x);
@@ -35,6 +36,12 @@ public class Benchmark {
 		synchronized(lock) {
 			map = map.set(k, e);
 		}
+	}
+
+	static Hamt<Integer, Entity> setInternal(Hamt<Integer, Entity> m, int x) {
+		Entity e = new Entity(x);
+		Integer k = x;
+		return m.set(k, e);
 	}
 	
 	static int get(int x) {
@@ -57,11 +64,24 @@ public class Benchmark {
 		if (VERIFY)
 			verify = new ArrayList<Integer>();
 
-		for (int i = 0; i < nOps / nThreads; i++) {
-			int x = r.nextInt() % keyRange;
-			set(x);
-			if (VERIFY)
-				verify.add(x);
+		for (int i = 0; i < nOps / nThreads; i += batchSize) {
+			if (batchSize == 1) {
+				int x = r.nextInt() % keyRange;
+				set(x);
+				if (VERIFY)
+					verify.add(x);
+			} else {
+				synchronized(lock) {
+					Hamt<Integer, Entity> m = map;
+					for (int j = 0; j < batchSize; j++) {
+						int x = r.nextInt() % keyRange;
+						m = setInternal(m, x);
+						if (VERIFY)
+							verify.add(x);
+					}
+					map = m;
+				}
+			}
 		}
 		if(VERIFY)
 			for (int x: verify) {
@@ -107,6 +127,8 @@ public class Benchmark {
 			case "-t":
 				nThreads = Integer.parseInt(args[i]);
 				break;
+			case "-b":
+				batchSize = Integer.parseInt(args[i]);
 			}
 		}
 			
