@@ -12,10 +12,6 @@ class Entity {
 	}
 }
 
-class MapHolder {
-	public Hamt<Integer, Entity> map = Hamt.empty();
-}
-
 public class Benchmark {
 	
 	static final boolean VERIFY = true;
@@ -25,7 +21,7 @@ public class Benchmark {
 	static final int N =1000 * 1000 * 1;
 	
 	@durable_root
-	static MapHolder mapHolder;
+	static Hamt<Integer, Entity> map = Hamt.empty();
 	static final Object lock = new Object();
 	
 	static int nOps = N;
@@ -38,7 +34,7 @@ public class Benchmark {
 		Entity e = new Entity(x);
 		Integer k = x;
 		synchronized(lock) {
-			mapHolder.map = mapHolder.map.set(k, e);
+			map = map.set(k, e);
 		}
 	}
 
@@ -52,7 +48,7 @@ public class Benchmark {
 		Integer k = x;
 		Entity e;
 		synchronized(lock) {
-			e = mapHolder.map.find(k);
+			e = map.find(k);
 		}
 		if (e != null) {
 			if (e.value != x)
@@ -76,14 +72,14 @@ public class Benchmark {
 					verify.add(x);
 			} else {
 				synchronized(lock) {
-					Hamt<Integer, Entity> m = mapHolder.map;
+					Hamt<Integer, Entity> m = map;
 					for (int j = 0; j < batchSize; j++) {
 						int x = r.nextInt() % keyRange;
 						m = setInternal(m, x);
 						if (VERIFY)
 							verify.add(x);
 					}
-					mapHolder.map = m;
+					map = m;
 				}
 			}
 		}
