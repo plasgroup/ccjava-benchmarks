@@ -30,7 +30,7 @@ class Param {
 				System.out.println("Main [options] in-file");
 				System.out.println("  -r R  repeat R times");
 				System.out.println("  -t N  use N threads");
-				System.out.println("  -f F  take field F in addition to the default fields");
+				System.out.println("  -f F  take field F in addition to the default fields [disabled]");
 				System.out.println("default fields are `protein' and `sequence'");
 				System.out.println("-f option can be given multiple times");
 				break;
@@ -55,7 +55,7 @@ class Protein {
 	String id;
 	String sequence;
 	CustomNode protain;
-	CustomNode[] more;
+//	CustomNode[] more;
 	Protein(String id, CustomNode protain, String sequence) {
 		this.id = id;
 		this.protain = protain;
@@ -91,6 +91,22 @@ class Parser {
 		return domToProtein(e);
 	}
 	
+	CustomNode[] takeMoreFields(Element e) {
+		int total = 0;
+		for (String fn: Param.moreFields) {
+			NodeList children = e.getElementsByTagName(fn);
+			total += children.getLength();
+		}
+		CustomNode[] more = new CustomNode[total];
+		int i = 0;
+		for (String fn: Param.moreFields) {
+			NodeList children = e.getElementsByTagName(fn);
+			for (int j = 0; j < children.getLength(); j++, i++)
+				more[i] = domToTree(children.item(j));
+		}
+		return more;
+	}
+	
 	Protein domToProtein(Element e) {
 		String id = e.getAttribute("id");
 		CustomNode n = null;
@@ -109,18 +125,7 @@ class Parser {
 		Protein p = new Protein(id, protainField, sequence);
 		
 		// more fields
-		int total = 0;
-		for (String fn: Param.moreFields) {
-			children = e.getElementsByTagName(fn);
-			total += children.getLength();
-		}
-		p.more = new CustomNode[total];
-		int i = 0;
-		for (String fn: Param.moreFields) {
-			children = e.getElementsByTagName(fn);
-			for (int j = 0; j < children.getLength(); j++, i++)
-				p.more[i] = domToTree(children.item(j));
-		}
+		//p.more = takeMoreFields(e);
 
 		return p;
 	}
