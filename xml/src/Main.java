@@ -1,9 +1,7 @@
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.FileReader;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -219,6 +217,41 @@ class Executor {
 	}
 }
 
+class Dictionary<K, V> {
+	static final int CHUNK_SIZE = 1000;
+	static class KV<K, V> {
+		K key;
+		V value;
+		KV(K key, V value) {
+			this.key = key;
+			this.value = value;
+		}
+	}
+	class Chunk {
+		Object[] elems = new Object[CHUNK_SIZE];
+		Chunk next;
+	}
+	
+	Chunk head = new Chunk();
+	int countInHead = 0;
+	int nFullChunks = 0;
+	
+	void put(K key, V value) {
+		if (countInHead >= CHUNK_SIZE) {
+			Chunk c = new Chunk();
+			c.next = head;
+			head = c;
+			countInHead = 0;
+			nFullChunks++;
+		}
+		head.elems[countInHead++] = new KV<K, V>(key, value);
+	}
+	
+	int size() {
+		return nFullChunks * CHUNK_SIZE + countInHead;
+	}
+}
+
 class Protein {
 	String id;
 	String sequence;
@@ -323,12 +356,12 @@ class Parser {
 }
 
 public class Main {
-	static Map<String, Protein> db;
+	static Dictionary<String, Protein> db;
 	static Object lock = new Object();
 	static int count = 0;
 	
 	static void readXmlMT(String filename) {
-		db = new HashMap<String, Protein>();
+		db = new Dictionary<String, Protein>();
 		Executor pool = new Executor(Param.threads);
 		
 		try {
