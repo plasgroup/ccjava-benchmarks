@@ -19,7 +19,7 @@ import org.w3c.dom.Text;
 
 class Param {
 	static int rounds = 15;
-	static int threads = 10;
+	static int threads = 30;
 	static String inFile;
 	static Set<String> moreFields = new HashSet<String>();
 	
