@@ -234,7 +234,7 @@ public class Main {
 	public static void main(String[] args) {
 		Param.parseArgs(args);
 		
-		for (int i = 0; i < 10; i++) {
+		for (int i = 0; i < Param.rounds; i++) {
 			System.gc();
 			long start = System.currentTimeMillis();
 			readXmlMT(Param.inFile);
