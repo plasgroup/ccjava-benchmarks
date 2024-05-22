@@ -5,8 +5,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -48,6 +46,176 @@ class Param {
 				break;
 			}
 		}
+	}
+}
+
+/*
+class Executor {
+	static class Worker extends Thread {
+		int id;
+		Executor executor;
+		Runnable task;
+		boolean done = false;  // protected by the Executor's monitor
+		
+		Worker(int id, Executor executor, Runnable task) {
+			this.id = id;
+			this.executor = executor;
+			this.task = task;
+		}
+
+		@Override
+		public void run() {
+			task.run();
+			executor.notifyDone(this);
+		}
+	}
+	
+	Worker[] workers;
+	
+	Executor(int n) {
+		workers = new Worker[n];
+	}
+	
+	synchronized void notifyDone(Worker worker) {
+		worker.done = true;
+		notifyAll();
+	}
+	
+	synchronized int findWorkerSlot() {
+		while (true) {
+			for (int i = 0; i < workers.length; i++) {
+				if (workers[i] == null)
+					return i;
+				if (workers[i].done)
+					return i;
+			}
+			try {
+				wait();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+				
+		}
+		
+	}
+	
+	synchronized void exec(Runnable task) {
+		int slot = findWorkerSlot();
+		if (workers[slot] != null)
+			try {
+				workers[slot].join();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		Worker worker = new Worker(slot, this, task);
+		workers[slot] = worker;
+		worker.start();
+	}
+	
+	
+	void join() {
+		for (int i = 0; i < workers.length; i++)
+			if (workers[i] != null)
+				try {
+					workers[i].join();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+	}
+}
+*/
+
+
+class Executor {
+	static final Runnable TERMINATE = new Runnable() { public void run() {} };
+	
+	static class Worker extends Thread {
+		int id;
+		Executor executor;
+		Runnable task;
+		boolean done = false;  // protected by the Executor's monitor
+		
+		Worker(int id, Executor executor) {
+			this.id = id;
+			this.executor = executor;
+		}
+
+		@Override
+		public void run() {
+			try {
+				while (true) {
+					synchronized (executor) {
+						while (task == null)
+							executor.wait();
+					}
+					if (task == TERMINATE) {
+						synchronized (executor) {
+							task = null;
+							executor.notifyAll();
+						}
+						return;
+					}
+					task.run();
+					synchronized (executor) {
+						task = null;
+						executor.notifyAll();
+					}
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+		
+		boolean exec(Runnable task) {
+			if (this.task == null) {
+				this.task = task;
+				executor.notifyAll();
+				return true;
+			}
+			return false;
+		}
+		
+		void terminate() {
+			try {
+				synchronized (executor) {
+					while (this.task != null) 
+						executor.wait();
+					this.task = TERMINATE;
+					executor.notifyAll();
+				}
+				join();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	Worker[] workers;
+	
+	Executor(int n) {
+		workers = new Worker[n];
+		for (int i = 0; i < n; i++) {
+			workers[i] = new Worker(i, this);
+			workers[i].start();
+		}
+	}
+	
+	synchronized void exec(Runnable task) {
+		try {
+			while (true) {
+				for (int i = 0; i < workers.length; i++)
+					if (workers[i].exec(task))
+						return;
+				wait();
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	void join() {
+		for (int i = 0; i < workers.length; i++)
+			workers[i].terminate();
 	}
 }
 
@@ -158,42 +326,10 @@ public class Main {
 	static Map<String, Protein> db;
 	static Object lock = new Object();
 	static int count = 0;
-
-	static void readXml(String filename) {
-		db = new HashMap<String, Protein>();
-		int count = 0;
-		try {
-			Parser parser = new Parser();
-			BufferedReader in = new BufferedReader(new FileReader(filename));
-			while (true) {
-				String line = in.readLine();
-				if (line == null)
-					break;
-				if (line.startsWith("<ProteinEntry ")) {
-					StringBuilder b = new StringBuilder(line);
-					while (true) {
-						line = in.readLine();
-						b.append(line);
-						if (line.startsWith("</ProteinEntry>"))
-							break;
-					}
-					Protein pro = parser.parse(b.toString());
-					db.put(pro.id, pro);
-					if (++count % 10000 == 0)
-						System.out.println(count);
-				}
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		
-		System.out.println(db.size());
-	}
 	
 	static void readXmlMT(String filename) {
 		db = new HashMap<String, Protein>();
-
-		ExecutorService pool = Executors.newFixedThreadPool(Param.threads);
+		Executor pool = new Executor(Param.threads);
 		
 		try {
 			BufferedReader in = new BufferedReader(new FileReader(filename));
@@ -224,11 +360,12 @@ public class Main {
 						}
 					};
 					count++;
-					pool.submit(t);
+//					if (count % 1000 == 0)
+//						System.out.println(count);
+					pool.exec(t);
 				}
 			}
-			pool.shutdown();
-			pool.awaitTermination(1000, java.util.concurrent.TimeUnit.SECONDS);
+			pool.join();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
