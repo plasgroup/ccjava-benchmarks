@@ -1,9 +1,9 @@
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.FileReader;
-import java.util.HashMap;
+//import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
+//import java.util.Map;
 import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -323,12 +323,12 @@ class Parser {
 }
 
 public class Main {
-	static Map<String, Protein> db;
+	static CustomHashMap<String, Protein> db;
 	static Object lock = new Object();
 	static int count = 0;
 	
 	static void readXmlMT(String filename) {
-		db = new HashMap<String, Protein>();
+		db = new CustomHashMap<String, Protein>();
 		Executor pool = new Executor(Param.threads);
 		
 		try {
@@ -387,3 +387,80 @@ public class Main {
 }
 
 
+class CustomHashMap<K, V>{
+    private static final int INITIAL_CAPACITY = 1 << 4;  
+    private static final int MAXIMUM_CAPACITY = 1 << 30;
+
+    private Entry[] hashtable;
+    private int size;
+
+    public CustomHashMap(){
+        hashtable = new Entry[INITIAL_CAPACITY];
+        size = 0;
+    }
+
+    public CustomHashMap(Integer capacity){
+        int cap = tableSizeFor(capacity);
+        hashtable = new Entry[cap];
+        size = 0;
+    }
+
+    private int tableSizeFor(Integer cap){
+        int n = -1 >>> Integer.numberOfLeadingZeros(cap-1);
+        return n < 0 ? 1 : (n >= MAXIMUM_CAPACITY ? MAXIMUM_CAPACITY: n + 1);
+    }
+
+    class Entry<K, V>{
+        public K key;
+        public V value;
+        public Entry next;
+
+        Entry(K key, V value){
+            this.key = key;
+            this.value = value;
+        }
+    }
+    final int hash(Object key){
+        int h;
+        return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
+    }
+
+    public void put(K key, V value){
+        int hashCode = hash(key) & (hashtable.length - 1);
+        Entry node = hashtable[hashCode];
+        if(node == null){
+            Entry newNode = new Entry(key, value);
+            hashtable[hashCode] = newNode;
+            size++;
+        }else{
+            Entry prevNode = node;
+            while (node != null){
+                if(node.key.equals(key)){
+                    node.value = value;
+                    return;
+                }
+                prevNode = node;
+                node = node.next;
+            }
+            Entry newNode = new Entry(key, value);
+            prevNode.next = newNode;
+            size++;
+        }
+    }
+
+    public V get(K key){
+        int hashCode = hash(key) & (hashtable.length - 1);
+        Entry node = hashtable[hashCode];
+        while(node != null){
+            if(node.key.equals(key)){
+                return (V) node.value;
+            }
+            node = node.next;
+        }
+        return null;
+    }
+
+    public int size(){
+    	return size;
+    }
+}
