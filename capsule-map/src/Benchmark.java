@@ -17,6 +17,11 @@ class Entity {
 	}
 }
 
+class MapHolder {
+	public Map.Immutable<Integer, Entity> map = Map.Immutable.of();
+}
+
+
 public class Benchmark {
 	
 	static final boolean VERIFY = true;
@@ -26,7 +31,7 @@ public class Benchmark {
 	static final int N =1000 * 1000 * 1;
 	
 	@durable_root
-	static Map.Immutable<Integer, Entity> map = Map.Immutable.of();
+	static MapHolder mapHolder;
 	static final Object lock = new Object();
 	
 	static int nOps = N;
@@ -39,7 +44,7 @@ public class Benchmark {
 		Entity e = new Entity(x);
 		Integer k = x;
 		synchronized(lock) {
-			map = map.__put(k, e);
+			mapHolder.map = mapHolder.map.__put(k, e);
 		}
 	}
 
@@ -53,7 +58,7 @@ public class Benchmark {
 		Integer k = x;
 		Entity e;
 		synchronized(lock) {
-			e = map.get(k);
+			e = mapHolder.map.get(k);
 		}
 		if (e != null) {
 			if (e.value != x)
@@ -77,14 +82,14 @@ public class Benchmark {
 					verify.add(x);
 			} else {
 				synchronized(lock) {
-					Map.Immutable<Integer, Entity> m = map;
+					Map.Immutable<Integer, Entity> m = mapHolder.map;
 					for (int j = 0; j < batchSize; j++) {
 						int x = r.nextInt() % keyRange;
 						m = setInternal(m, x);
 						if (VERIFY)
 							verify.add(x);
 					}
-					map = m;
+					mapHolder.map = m;
 				}
 			}
 		}
