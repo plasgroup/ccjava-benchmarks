@@ -1,7 +1,9 @@
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.FileReader;
+//import java.util.HashMap;
 import java.util.HashSet;
+//import java.util.Map;
 import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -217,41 +219,6 @@ class Executor {
 	}
 }
 
-class Dictionary<K, V> {
-	static final int CHUNK_SIZE = 1000;
-	static class KV<K, V> {
-		K key;
-		V value;
-		KV(K key, V value) {
-			this.key = key;
-			this.value = value;
-		}
-	}
-	class Chunk {
-		Object[] elems = new Object[CHUNK_SIZE];
-		Chunk next;
-	}
-	
-	Chunk head = new Chunk();
-	int countInHead = 0;
-	int nFullChunks = 0;
-	
-	void put(K key, V value) {
-		if (countInHead >= CHUNK_SIZE) {
-			Chunk c = new Chunk();
-			c.next = head;
-			head = c;
-			countInHead = 0;
-			nFullChunks++;
-		}
-		head.elems[countInHead++] = new KV<K, V>(key, value);
-	}
-	
-	int size() {
-		return nFullChunks * CHUNK_SIZE + countInHead;
-	}
-}
-
 class Protein {
 	String id;
 	String sequence;
@@ -356,12 +323,12 @@ class Parser {
 }
 
 public class Main {
-	static Dictionary<String, Protein> db;
+	static CustomHashMap<String, Protein> db;
 	static Object lock = new Object();
 	static int count = 0;
 	
 	static void readXmlMT(String filename) {
-		db = new Dictionary<String, Protein>();
+		db = new CustomHashMap<String, Protein>();
 		Executor pool = new Executor(Param.threads);
 		
 		try {
@@ -420,3 +387,80 @@ public class Main {
 }
 
 
+class CustomHashMap<K, V>{
+    private static final int INITIAL_CAPACITY = 1 << 4;  
+    private static final int MAXIMUM_CAPACITY = 1 << 30;
+
+    private Entry[] hashtable;
+    private int size;
+
+    public CustomHashMap(){
+        hashtable = new Entry[INITIAL_CAPACITY];
+        size = 0;
+    }
+
+    public CustomHashMap(Integer capacity){
+        int cap = tableSizeFor(capacity);
+        hashtable = new Entry[cap];
+        size = 0;
+    }
+
+    private int tableSizeFor(Integer cap){
+        int n = -1 >>> Integer.numberOfLeadingZeros(cap-1);
+        return n < 0 ? 1 : (n >= MAXIMUM_CAPACITY ? MAXIMUM_CAPACITY: n + 1);
+    }
+
+    class Entry<K, V>{
+        public K key;
+        public V value;
+        public Entry next;
+
+        Entry(K key, V value){
+            this.key = key;
+            this.value = value;
+        }
+    }
+    final int hash(Object key){
+        int h;
+        return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
+    }
+
+    public void put(K key, V value){
+        int hashCode = hash(key) & (hashtable.length - 1);
+        Entry node = hashtable[hashCode];
+        if(node == null){
+            Entry newNode = new Entry(key, value);
+            hashtable[hashCode] = newNode;
+            size++;
+        }else{
+            Entry prevNode = node;
+            while (node != null){
+                if(node.key.equals(key)){
+                    node.value = value;
+                    return;
+                }
+                prevNode = node;
+                node = node.next;
+            }
+            Entry newNode = new Entry(key, value);
+            prevNode.next = newNode;
+            size++;
+        }
+    }
+
+    public V get(K key){
+        int hashCode = hash(key) & (hashtable.length - 1);
+        Entry node = hashtable[hashCode];
+        while(node != null){
+            if(node.key.equals(key)){
+                return (V) node.value;
+            }
+            node = node.next;
+        }
+        return null;
+    }
+
+    public int size(){
+    	return size;
+    }
+}
