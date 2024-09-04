@@ -126,6 +126,7 @@ public class Benchmark {
 	}
 	
 	public static void main(String[] args) {
+		mapHolder = new MapHolder();
 		for (int i = 0; i < args.length; i++) {
 			switch (args[i++]) {
 			case "-r":
